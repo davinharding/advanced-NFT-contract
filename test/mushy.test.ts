@@ -230,8 +230,8 @@ describe("Mushy", () => {
     );
   });
 
-  xit("Should create a _randomNumbers array that is shuffled after running shuffler(_randomSeed) which does not equal unshoffled _randomNumbers array", async () => {
-    const randomSeed = 7.854166079704491e76;
+  it("Should create a _randomNumbers array that is shuffled after running shuffler(_randomSeed) which does not equal unshoffled _randomNumbers array", async () => {
+    const randomSeed = ethers.BigNumber.from("785416607970449");
 
     const originalArray = [];
 
@@ -241,8 +241,8 @@ describe("Mushy", () => {
 
     await mushyContract.shuffler(randomSeed);
 
-    const newArray = mushyContract._randomNumbers();
+    const newArray = await mushyContract.getRandomNumbersArray();
 
-    console.log(originalArray, newArray);
+    console.log(originalArray, newArray, newArray.length);
   });
 });

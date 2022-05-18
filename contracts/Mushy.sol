@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "erc721a/contracts/ERC721A.sol";
 
+import "hardhat/console.sol";
+
 pragma solidity ^0.8.0;
 
 contract Mushy is ERC721A, Ownable, ReentrancyGuard {
@@ -36,17 +38,13 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     uint256 public total_reserved = 675;
 
     // array that will be created by shuffler function to randomly associated token id to metadata index
-    uint256[] private _randomNumbers;
+    // currently set to public for local testing purposes but should be private on testnet/mainnet
+    uint256[] public _randomNumbers;
 
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
         root = _root;
-
-        // initialize array with values 1 -> MAX_TOTAL_TOKENS
-        for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
-            _randomNumbers.push(i);
-        }
 
         // don't forget to update total_reserved
         reserved_mints[0x4Ac2bD3b9Af192456A416de78E9E124d4FA6c399] = 120;
@@ -170,16 +168,30 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
     */
 
-  //   function shuffler(uint _randomSeed) public {
-  //     for (uint i = 0; i < _randomNumbers.length; i++) {
-  //       // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed with on chain events should the need for furth
-  //     uint256 randomIndex = _randomSeed % _randomNumbers.length;
-    
-  //     _randomNumbers[randomIndex] = _randomNumbers[_randomNumbers.length - 1];
+    function shuffler(uint _randomSeed) public {
+      // initialize array with values 1 -> MAX_TOTAL_TOKENS
+      for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
+          _randomNumbers.push(i);
+      }
 
-  //     _randomNumbers.pop();
-  //   }
-  // }
+      console.log("random numbers", _randomNumbers.length);
+
+      uint temp;
+      uint r;
+
+      for (uint i = MAX_TOTAL_TOKENS-1; i > 1; i--) {
+        // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed with on chain events should the need for furth
+        temp = _randomNumbers[i];
+        r = _randomSeed % i;
+        _randomNumbers[i] = _randomNumbers[r];
+        _randomNumbers[r] = temp;
+    }
+  }
+
+  function getRandomNumbersArray() public view returns (uint256[] memory) {
+    return _randomNumbers;
+  }
+
     function withdrawEth() public onlyOwner nonReentrant {
         uint256 total = address(this).balance;
 

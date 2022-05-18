@@ -35,10 +35,18 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     mapping (address => uint256) reserved_mints;
     uint256 public total_reserved = 675;
 
+    // array that will be created by shuffler function to randomly associated token id to metadata index
+    uint256[] private _randomNumbers;
+
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
         root = _root;
+
+        // initialize array with values 1 -> MAX_TOTAL_TOKENS
+        for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
+            _randomNumbers.push(i);
+        }
 
         // don't forget to update total_reserved
         reserved_mints[0x4Ac2bD3b9Af192456A416de78E9E124d4FA6c399] = 120;
@@ -152,6 +160,26 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         }
     }
 
+    /* 
+
+    Credit to Taras Filatov for below - https://ethereum.stackexchange.com/questions/118934/want-to-generate-non-repeative-random-number-in-a-particular-range/119121#119121
+
+    Will be putting the below logic into a shuffler function that will store a shuffled array of 1-5555 indices. The actual index of the array will be the token ID and the value of the element will be the metadata index.  Then in the tokenURI function we will call randomNumbers[tokeID] in order to get the suffix of the tokenURI.
+
+    There will also need to be a function for the Chainlink VRF functionality that will plantSeed and request the randomness seed as well and getSeed, actually read the randomness seed for use in the shuffler function.
+
+    */
+
+  //   function shuffler(uint _randomSeed) public {
+  //     for (uint i = 0; i < _randomNumbers.length; i++) {
+  //       // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed with on chain events should the need for furth
+  //     uint256 randomIndex = _randomSeed % _randomNumbers.length;
+    
+  //     _randomNumbers[randomIndex] = _randomNumbers[_randomNumbers.length - 1];
+
+  //     _randomNumbers.pop();
+  //   }
+  // }
     function withdrawEth() public onlyOwner nonReentrant {
         uint256 total = address(this).balance;
 

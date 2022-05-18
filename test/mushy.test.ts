@@ -229,4 +229,20 @@ describe("Mushy", () => {
       "Contract does not allow receipt of ETH or ERC-20 tokens"
     );
   });
+
+  xit("Should create a _randomNumbers array that is shuffled after running shuffler(_randomSeed) which does not equal unshoffled _randomNumbers array", async () => {
+    const randomSeed = 7.854166079704491e76;
+
+    const originalArray = [];
+
+    for (let i = 1; i <= 5555; i++) {
+      originalArray.push(i);
+    }
+
+    await mushyContract.shuffler(randomSeed);
+
+    const newArray = mushyContract._randomNumbers();
+
+    console.log(originalArray, newArray);
+  });
 });

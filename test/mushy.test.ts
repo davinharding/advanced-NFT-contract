@@ -253,8 +253,6 @@ describe("Mushy", () => {
 
     const newArray = await mushyContract.getRandomNumbersArray();
 
-
-
     oldArray.forEach((e: number) => {
       // console.log(e, newArray[e - 1]);
       expect(e).to.not.equal(newArray[e - 1]);

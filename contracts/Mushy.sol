@@ -168,7 +168,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
     */
 
-    function shuffler(uint _randomSeed) public { // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed using Chainlink VRF in if further transparency and decentralization is desired
+    function shuffler(uint _randomSeed) public onlyOwner { // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed using Chainlink VRF in if further transparency and decentralization is desired
 
       console.log("random numbers", _randomNumbers.length); // Checkes that the _randomNumbers array is created successfully, can be removed once local testing is complete
 
@@ -185,7 +185,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
   //  Below function exists strictly for local testing and should be remooved before deploying to testnet/mainnet
 
-  function getRandomNumbersArray() public view returns (uint256[] memory) {
+  function getRandomNumbersArray() public view onlyOwner returns (uint256[] memory) {
     return _randomNumbers;
   }
 

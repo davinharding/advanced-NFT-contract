@@ -25,7 +25,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     bytes32 public root;
 
     // metadata
-    string private baseURI = "";
+    string private baseURI = "test";
     string private unrevealedURI = "ipfs://QmbTe5jr8jJoTHtMVLH6dYmaHD7iGm2HdUNV3dRT5Fjeo8";
 
     // status
@@ -38,13 +38,17 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     uint256 public total_reserved = 675;
 
     // array that will be created by shuffler function to randomly associated token id to metadata index
-    // currently set to public for local testing purposes but should be private on testnet/mainnet
-    uint256[] public _randomNumbers;
+    uint256[] private _randomNumbers;
 
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
         root = _root;
+
+      // initialize array with values 1 -> MAX_TOTAL_TOKENS
+      for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
+          _randomNumbers.push(i);
+      }
 
         // don't forget to update total_reserved
         reserved_mints[0x4Ac2bD3b9Af192456A416de78E9E124d4FA6c399] = 120;
@@ -148,15 +152,15 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function tokenURI(uint256 _tokenID) public view virtual override returns (string memory) {
-        require(_exists(_tokenID), "ERC721Metadata: URI query for nonexistent token");
+      require(_exists(_tokenID), "ERC721Metadata: URI query for nonexistent token");
 
-        if(is_revealed) {
-            return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenID.toString(), ".json")) : "";
-        }
-        else {
-            return unrevealedURI;
-        }
-    }
+      if(is_revealed) {
+          return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _randomNumbers[_tokenID].toString(), ".json")) : "";
+      }
+      else {
+          return unrevealedURI;
+      }
+  }
 
     /* 
 
@@ -169,11 +173,6 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     */
 
     function shuffler(uint _randomSeed) public {
-      // initialize array with values 1 -> MAX_TOTAL_TOKENS
-      for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
-          _randomNumbers.push(i);
-      }
-
       console.log("random numbers", _randomNumbers.length);
 
       uint temp;

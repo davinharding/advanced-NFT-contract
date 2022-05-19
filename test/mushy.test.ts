@@ -28,18 +28,18 @@ describe("Mushy", () => {
     mushyContract = await MushyFactory.deploy(root);
   });
 
-  it("Should initialize Mushy Contract and check mint price is .08", async () => {
+  xit("Should initialize Mushy Contract and check mint price is .08", async () => {
     const inWei = await mushyContract.item_price_public();
     expect(parseFloat(web3.utils.fromWei(inWei.toString(), "ether"))).to.equal(
       0.08
     );
   });
 
-  it("Should set the right owner", async () => {
+  xit("Should set the right owner", async () => {
     expect(await mushyContract.owner()).to.equal(await owner.address);
   });
 
-  it("Should allow whitelisted address to execute whitelist mint using proof, mint address balance should match # of mints executed", async () => {
+  xit("Should allow whitelisted address to execute whitelist mint using proof, mint address balance should match # of mints executed", async () => {
     const leaf = keccak256(address1.address);
     const proof = tree.getHexProof(leaf);
 
@@ -53,7 +53,7 @@ describe("Mushy", () => {
     expect(balance.toNumber()).to.equal(1);
   });
 
-  it("Should not allow more allowlist mints than allowlist_mint_max_per_tx allows", async () => {
+  xit("Should not allow more allowlist mints than allowlist_mint_max_per_tx allows", async () => {
     const leaf = keccak256(owner.address);
     const proof = tree.getHexProof(leaf);
 
@@ -66,7 +66,7 @@ describe("Mushy", () => {
     ).to.be.revertedWith("Requested mint amount invalid");
   });
 
-  it("Should not allow whitelist mints with incorrect payment value", async () => {
+  xit("Should not allow whitelist mints with incorrect payment value", async () => {
     const leaf = keccak256(owner.address);
     const proof = tree.getHexProof(leaf);
 
@@ -79,7 +79,7 @@ describe("Mushy", () => {
     ).to.be.revertedWith("Not sufficient ETH to mint this number of NFTs");
   });
 
-  it("Should not allow whitelist mints with invalid proof/root/leaf", async () => {
+  xit("Should not allow whitelist mints with invalid proof/root/leaf", async () => {
     const leaf = keccak256(address3.address); // address3 is not in the merkle tree
     const proof = tree.getHexProof(leaf);
 
@@ -92,7 +92,7 @@ describe("Mushy", () => {
     ).to.be.revertedWith("Invalid proof");
   });
 
-  it("Should not allow whitelist mint if whitelist mint is not active", async () => {
+  xit("Should not allow whitelist mint if whitelist mint is not active", async () => {
     const leaf = keccak256(owner.address);
     const proof = tree.getHexProof(leaf);
 
@@ -119,7 +119,7 @@ describe("Mushy", () => {
 
     await expect(
       mushyContract.publicMint(1, {
-        value: ethers.utils.parseEther(".07"),
+        value: ethers.utils.parseEther(".08"),
       })
     );
 
@@ -127,8 +127,8 @@ describe("Mushy", () => {
     expect(balance.toNumber()).to.equal(1);
 
     await expect(
-      mushyContract.publicMint(2, {
-        value: ethers.utils.parseEther(".14"),
+      mushyContract.publicMint(5, {
+        value: ethers.utils.parseEther(".40"),
       })
     ).to.be.reverted;
   });
@@ -233,16 +233,25 @@ describe("Mushy", () => {
   it("Should create a _randomNumbers array that is shuffled after running shuffler(_randomSeed) which does not equal unshoffled _randomNumbers array", async () => {
     const randomSeed = ethers.BigNumber.from("785416607970449");
 
-    const originalArray = [];
+    mushyContract.setPublicMintActive(true);
 
-    for (let i = 1; i <= 5555; i++) {
-      originalArray.push(i);
-    }
+    await expect(
+      mushyContract.publicMint(2, {
+        value: ethers.utils.parseEther(".16"),
+      })
+    );
+
+    await mushyContract.setIsRevealed(true);
+
+    const tokenURI = await mushyContract.tokenURI(0);
 
     await mushyContract.shuffler(randomSeed);
 
+    const newTokenURI = await mushyContract.tokenURI(0);
+
     const newArray = await mushyContract.getRandomNumbersArray();
 
-    console.log(originalArray, newArray, newArray.length);
+    console.log(newArray, newArray.length);
+    console.log(tokenURI, newTokenURI);
   });
 });

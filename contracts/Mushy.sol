@@ -25,7 +25,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     bytes32 public root;
 
     // metadata
-    string private baseURI = "test";
+    string private baseURI = "test"; // Change to real base URI for new project
     string private unrevealedURI = "ipfs://QmbTe5jr8jJoTHtMVLH6dYmaHD7iGm2HdUNV3dRT5Fjeo8";
 
     // status
@@ -164,28 +164,26 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
     /* 
 
-    Credit to Taras Filatov for below - https://ethereum.stackexchange.com/questions/118934/want-to-generate-non-repeative-random-number-in-a-particular-range/119121#119121
-
-    Will be putting the below logic into a shuffler function that will store a shuffled array of 1-5555 indices. The actual index of the array will be the token ID and the value of the element will be the metadata index.  Then in the tokenURI function we will call randomNumbers[tokeID] in order to get the suffix of the tokenURI.
-
-    There will also need to be a function for the Chainlink VRF functionality that will plantSeed and request the randomness seed as well and getSeed, actually read the randomness seed for use in the shuffler function.
+    Shuffles is based off Fisher-Yates Algorithm: https://github.com/sfriedman71/lasercat/blob/main/fisher_yates_shuffle.sol
 
     */
 
-    function shuffler(uint _randomSeed) public {
-      console.log("random numbers", _randomNumbers.length);
+    function shuffler(uint _randomSeed) public { // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed using Chainlink VRF in if further transparency and decentralization is desired
 
-      uint temp;
-      uint r;
+      console.log("random numbers", _randomNumbers.length); // Checkes that the _randomNumbers array is created successfully, can be removed once local testing is complete
 
-      for (uint i = MAX_TOTAL_TOKENS-1; i > 1; i--) {
-        // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed with on chain events should the need for furth
-        temp = _randomNumbers[i];
-        r = _randomSeed % i;
-        _randomNumbers[i] = _randomNumbers[r];
-        _randomNumbers[r] = temp;
+      uint temp; // keeps track of current number
+      uint r; // random index based on current number and _randomSeed
+
+      for (uint i = MAX_TOTAL_TOKENS-1; i > 1; i--) { // loop through entire _randomNumbers array     
+        temp = _randomNumbers[i]; // current number in loop
+        r = _randomSeed % i; // random index per current index in loop
+        _randomNumbers[i] = _randomNumbers[r]; // swap current number with random number
+        _randomNumbers[r] = temp; // swap random number with current nunmber
     }
   }
+
+  //  Below function exists strictly for local testing and should be remooved before deploying to testnet/mainnet
 
   function getRandomNumbersArray() public view returns (uint256[] memory) {
     return _randomNumbers;

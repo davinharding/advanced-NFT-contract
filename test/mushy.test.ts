@@ -230,14 +230,14 @@ describe("Mushy", () => {
     );
   });
 
-  it("Should create a _randomNumbers array that is shuffled after running shuffler(_randomSeed) which does not equal unshoffled _randomNumbers array", async () => {
-    const randomSeed = ethers.BigNumber.from("785416607970449");
+  it("Should should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
+    const randomSeed = ethers.BigNumber.from("7854166079704491"); // this can be supplied off chain or via chainliink vrf
 
     mushyContract.setPublicMintActive(true);
 
     await expect(
-      mushyContract.publicMint(2, {
-        value: ethers.utils.parseEther(".16"),
+      mushyContract.publicMint(1, {
+        value: ethers.utils.parseEther(".08"),
       })
     );
 
@@ -245,13 +245,21 @@ describe("Mushy", () => {
 
     const tokenURI = await mushyContract.tokenURI(0);
 
+    const oldArray = await mushyContract.getRandomNumbersArray();
+
     await mushyContract.shuffler(randomSeed);
 
     const newTokenURI = await mushyContract.tokenURI(0);
 
     const newArray = await mushyContract.getRandomNumbersArray();
 
-    console.log(newArray, newArray.length);
-    console.log(tokenURI, newTokenURI);
+
+
+    oldArray.forEach((e: number) => {
+      // console.log(e, newArray[e - 1]);
+      expect(e).to.not.equal(newArray[e - 1]);
+    });
+
+    expect(tokenURI).to.not.equal(newTokenURI);
   });
 });

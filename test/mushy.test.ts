@@ -147,16 +147,16 @@ describe("Mushy", () => {
     mushyContract.setPublicMintActive(true);
 
     mushyContract.publicMint(1, {
-      value: ethers.utils.parseEther(".07"),
+      value: ethers.utils.parseEther(".08"),
     });
 
     mushyContract.connect(address1).publicMint(1, {
-      value: ethers.utils.parseEther(".07"),
+      value: ethers.utils.parseEther(".08"),
     });
 
     await expect(
       mushyContract.connect(address2).publicMint(1, {
-        value: ethers.utils.parseEther(".07"),
+        value: ethers.utils.parseEther(".08"),
       })
     ).to.be.revertedWith("Mint Amount Exceeds Total Allowed Mints");
   });
@@ -259,5 +259,19 @@ describe("Mushy", () => {
     });
 
     expect(tokenURI).to.not.equal(newTokenURI);
+  });
+
+  it("Should refund such that owner receives eth and no longer owns token, refund_address now has token", async () => {
+    mushyContract.setPublicMintActive(true);
+
+    mushyContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    mushyContract.setRefundActive(true);
+
+    mushyContract.refund(); // TEST IN PROGRESS, LEFT OFF HERE
+
+    console.log(await mushyContract.ownerOf(0), address1.address);
   });
 });

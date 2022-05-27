@@ -53,7 +53,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     mapping(uint256 => TokenData) internal _tokenData;
 
     // Refund admin fee, a percentage, initialized at 10%, should probably not be changeable to increase trust
-    uint256 public admin_percentage = .1;
+    uint256 public admin_percentage = 10;
 
     // Return address for refunded NFTs, set in the constructor to contract owner's address
     address private _return_address;
@@ -64,10 +64,12 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         root = _root;
         _return_address = _msgSender();
 
-      // initialize array with values 1 -> MAX_TOTAL_TOKENS
-      for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
-          _randomNumbers.push(i);
-      }
+      // Commented below as it is resource intensive and easier to test other functionality with out it for now
+
+      // // initialize array with values 1 -> MAX_TOTAL_TOKENS
+      // for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
+      //     _randomNumbers.push(i);
+      // }
 
         // don't forget to update total_reserved
         reserved_mints[0x4Ac2bD3b9Af192456A416de78E9E124d4FA6c399] = 120;
@@ -213,18 +215,16 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     if (_msgSender() != ownerOf(tokenId)) revert("Refund caller not Owner");
     if (_tokenData[tokenId].refunded) revert("Token has already been refunded");
 
-    uint256 refundAmount = _tokenData[tokenId].price*admin_percentage;
+    uint256 refundAmount = _tokenData[tokenId].price*(admin_percentage/100);
 
     if (refundAmount == 0) revert("Token was free mint");
 
     unchecked {
-        // No need to change balance here, SafeTransferFrom updates balance
         _tokenData[tokenId].refunded = true;
     }
 
-    // safeTransferFrom updates price and startTimestamp of new owner
     safeTransferFrom(_msgSender(), _return_address, tokenId);
-    
+
     (bool success, ) = to.call{value: refundAmount}("");
     if (!success) revert("Refund unsuccessful");
 

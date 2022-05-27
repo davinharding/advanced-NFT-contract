@@ -230,7 +230,7 @@ describe("Mushy", () => {
     );
   });
 
-  it("Should should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
+  xit("Should should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
     const randomSeed = ethers.BigNumber.from("7854166079704491"); // this can be supplied off chain or via chainliink vrf
 
     mushyContract.setPublicMintActive(true);

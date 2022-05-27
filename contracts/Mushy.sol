@@ -32,6 +32,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     bool public is_allowlist_active;
     bool public is_public_mint_active;
     bool public is_revealed;
+    bool public is_refund_active;
 
     // reserved mints for the team
     mapping (address => uint256) reserved_mints;
@@ -40,10 +41,28 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     // array that will be created by shuffler function to randomly associated token id to metadata index
     uint256[] private _randomNumbers;
 
+    // Define tokenData data structure
+    struct TokenData {
+      // Has token been refunded already?
+      bool refunded;
+      // What price was paid by minter
+      uint256 price;
+    }
+
+    // Mapping of tokenId to tokenData
+    mapping(uint256 => TokenData) internal _tokenData;
+
+    // Refund admin fee, a percentage, initialized at 10%, should probably not be changeable to increase trust
+    uint256 public admin_percentage = .1;
+
+    // Return address for refunded NFTs, set in the constructor to contract owner's address
+    address private _return_address;
+
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
         root = _root;
+        _return_address = _msgSender();
 
       // initialize array with values 1 -> MAX_TOTAL_TOKENS
       for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
@@ -106,6 +125,10 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         is_revealed = _val;
     }
 
+    function setRefundActive(bool _val) external onlyOwner {
+        is_refund_active = _val;
+    }
+
     function setNewRoot(bytes32 _root) external onlyOwner {
         root = _root;
     }
@@ -162,7 +185,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
       }
   }
 
-    /* 
+  /* 
 
   Shuffler is based off Fisher-Yates Algorithm: https://github.com/sfriedman71/lasercat/blob/main/fisher_yates_shuffle.sol
 
@@ -183,7 +206,32 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     }
   }
 
-  //  Below function exists strictly for local testing and should be remooved before deploying to testnet/mainnet
+  function refund(address to, uint256 tokenId) external {
+    if (!is_refund_active) revert("Refund period not active"); 
+    if (to == address(0)) revert("Refund to Zero address not allowed");
+
+    if (_msgSender() != ownerOf(tokenId)) revert("Refund caller not Owner");
+    if (_tokenData[tokenId].refunded) revert("Token has already been refunded");
+
+    uint256 refundAmount = _tokenData[tokenId].price*admin_percentage;
+
+    if (refundAmount == 0) revert("Token was free mint");
+
+    unchecked {
+        // No need to change balance here, SafeTransferFrom updates balance
+        _tokenData[tokenId].refunded = true;
+    }
+
+    // safeTransferFrom updates price and startTimestamp of new owner
+    safeTransferFrom(_msgSender(), _return_address, tokenId);
+    
+    (bool success, ) = to.call{value: refundAmount}("");
+    if (!success) revert("Refund unsuccessful");
+
+    emit Transfer(_msgSender(), _return_address, tokenId);
+  }
+
+  //  Below function exists strictly for local testing and should be removed before deploying to testnet/mainnet
 
   function getRandomNumbersArray() public view onlyOwner returns (uint256[] memory) {
     return _randomNumbers;

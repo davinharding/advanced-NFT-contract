@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, waffle } from "hardhat";
 import { expect } from "chai";
 import { BigNumber, Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -264,14 +264,23 @@ describe("Mushy", () => {
   it("Should refund such that owner receives eth and no longer owns token, refund_address now has token", async () => {
     mushyContract.setPublicMintActive(true);
 
-    mushyContract.connect(address1).publicMint(1, {
+    await mushyContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    mushyContract.setRefundActive(true);
+    const balanceBefore = await ethers.provider.getBalance(address1.address);
 
-    mushyContract.refund(); // TEST IN PROGRESS, LEFT OFF HERE
+    console.log("beforeBalance", ethers.utils.formatEther(balanceBefore));
 
-    console.log(await mushyContract.ownerOf(0), address1.address);
+    await mushyContract.setRefundActive(true);
+
+    await mushyContract.connect(address1).refund(address1.address, 0);
+
+    const balanceAfter = await ethers.provider.getBalance(address1.address);
+
+    console.log("balanceAfter", ethers.utils.formatEther(balanceAfter));
+
+    // Asserts that after refund the current owner of token minted by address1 is owner of contract
+    expect(await mushyContract.ownerOf(0)).to.equal(owner.address);
   });
 });

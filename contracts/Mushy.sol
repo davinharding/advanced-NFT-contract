@@ -58,6 +58,9 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     // Return address for refunded NFTs, set in the constructor to contract owner's address
     address private _return_address;
 
+    // Tracks current index for use in assigning metadata in mint functions
+    uint256 internal _currIndex = 0;
+
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
@@ -87,6 +90,12 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         total_reserved -= _amt;
 
         _safeMint(msg.sender, _amt);
+
+        // Below keeps track of _currIndex and associates price data within mapping
+        for(uint i = 0; i<_amt; i++) {          
+          _tokenData[_currIndex].price = 0;
+          _currIndex++;
+        }        
     }
 
     function allowlistMint(bytes32[] calldata _proof, uint256 _amt) external payable nonReentrant {
@@ -103,6 +112,12 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
         _setAux(msg.sender, new_claim_total);
         _safeMint(msg.sender, _amt);
+
+        // Below keeps track of _currIndex and associates price data within mapping
+        for(uint i = 0; i<_amt; i++) {          
+          _tokenData[_currIndex].price = item_price_al;
+          _currIndex++;
+        }  
     }
 
     function publicMint(uint256 _amt) external payable nonReentrant {
@@ -113,6 +128,12 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         require(_amt <= pub_mint_max_per_tx, "Too many NFTs in single transaction");
 
         _safeMint(msg.sender, _amt);
+
+        // Below keeps track of _currIndex and associates price data within mapping
+        for(uint i = 0; i<_amt; i++) {          
+          _tokenData[_currIndex].price = item_price_public;
+          _currIndex++;
+        }
     }
 
     function setAllowlistMintActive(bool _val) external onlyOwner {
@@ -157,6 +178,15 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
     function setUnrevealedURI(string memory _uri) external onlyOwner {
         unrevealedURI = _uri;
+    }
+
+    function setReturnAddress(address to) external onlyOwner {
+        if (to == address(0)) revert("Cannot set to 0 address");
+        _return_address = to;
+    }
+
+    function returnAddress() external view returns (address) {
+        return _return_address;
     }
 
     function isOnAllowList(bytes32[] calldata _proof, address _user) public view returns (uint256) {
@@ -215,12 +245,14 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     if (_msgSender() != ownerOf(tokenId)) revert("Refund caller not Owner");
     if (_tokenData[tokenId].refunded) revert("Token has already been refunded");
 
-    uint256 refundAmount = _tokenData[tokenId].price*(admin_percentage/100);
+    uint256 refundAmount = _tokenData[tokenId].price*(100-admin_percentage)/100;
 
+    console.log("refundAmount", refundAmount);
+    
     if (refundAmount == 0) revert("Token was free mint");
 
     unchecked {
-        _tokenData[tokenId].refunded = true;
+        _tokenData[tokenId].refunded = true; // maybe change this to run after successful transfer below
     }
 
     safeTransferFrom(_msgSender(), _return_address, tokenId);

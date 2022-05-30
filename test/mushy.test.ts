@@ -280,7 +280,29 @@ describe("Mushy", () => {
 
     console.log("balanceAfter", ethers.utils.formatEther(balanceAfter));
 
-    // Asserts that after refund the current owner of token minted by address1 is owner of contract
-    expect(await mushyContract.ownerOf(0)).to.equal(owner.address);
+    // Asserts that after refund the current owner of token minted by address1 is returnAddress
+    expect(await mushyContract.ownerOf(0)).to.equal(
+      await mushyContract.returnAddress()
+    );
+
+    // Asserts that balanceBefore - balanceAfter is at least price - 2*admin_percentage
+    expect(
+      parseFloat(ethers.utils.formatEther(balanceAfter)) -
+        parseFloat(ethers.utils.formatEther(balanceBefore))
+    ).to.be.greaterThan(
+      parseFloat(
+        ethers.utils.formatEther(await mushyContract.item_price_public())
+      ) *
+        // Double admin fee is to account for gas spend transacting
+        ((100 - 2 * (await mushyContract.admin_percentage())) / 100)
+    );
   });
+
+  /*
+
+  New Tests to add to Complete Refund Mechanism
+
+  1)  Test _tokenData's ability to hold multiple different prices
+
+  */
 });

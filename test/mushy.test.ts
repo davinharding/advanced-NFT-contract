@@ -1,6 +1,6 @@
-import { ethers, waffle } from "hardhat";
+import { ethers } from "hardhat";
 import { expect } from "chai";
-import { BigNumber, Contract } from "ethers";
+import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import MerkleTree from "merkletreejs";
 import keccak256 from "keccak256";
@@ -270,22 +270,18 @@ describe("Mushy", () => {
 
     const balanceBefore = await ethers.provider.getBalance(address1.address);
 
-    console.log("beforeBalance", ethers.utils.formatEther(balanceBefore));
-
     await mushyContract.setRefundActive(true);
 
     await mushyContract.connect(address1).refund(address1.address, 0);
 
     const balanceAfter = await ethers.provider.getBalance(address1.address);
 
-    console.log("balanceAfter", ethers.utils.formatEther(balanceAfter));
-
     // Asserts that after refund the current owner of token minted by address1 is returnAddress
     expect(await mushyContract.ownerOf(0)).to.equal(
       await mushyContract.returnAddress()
     );
 
-    // Asserts that balanceBefore - balanceAfter is at least price - 2*admin_percentage
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage
     expect(
       parseFloat(ethers.utils.formatEther(balanceAfter)) -
         parseFloat(ethers.utils.formatEther(balanceBefore))
@@ -293,7 +289,7 @@ describe("Mushy", () => {
       parseFloat(
         ethers.utils.formatEther(await mushyContract.item_price_public())
       ) *
-        // Double admin fee is to account for gas spend transacting
+        // Double admin fee is to account for gas spend during txns
         ((100 - 2 * (await mushyContract.admin_percentage())) / 100)
     );
   });
@@ -302,7 +298,79 @@ describe("Mushy", () => {
 
   New Tests to add to Complete Refund Mechanism
 
-  1)  Test _tokenData's ability to hold multiple different prices
+  1)  Test _tokenData's ability to hold multiple prices
 
   */
+
+  it("Should refund the correct amount regardless of mint price", async () => {
+    /*     
+      PUBLIC MINT/REFUND BLOCK
+    */
+    mushyContract.setPublicMintActive(true);
+    await mushyContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+    const balanceBeforeAdd1 = await ethers.provider.getBalance(
+      address1.address
+    );
+    await mushyContract.setRefundActive(true);
+    await mushyContract.connect(address1).refund(address1.address, 0);
+    const balanceAfterAdd1 = await ethers.provider.getBalance(address1.address);
+    /*
+      END PUBLIC BLOCK
+    */
+    /*
+      ALLOWLIST MINT/REFUND BLOCK
+    */
+    mushyContract.setAllowlistMintActive(true);
+    const leaf = keccak256(address2.address);
+    const proof = tree.getHexProof(leaf);
+    await mushyContract.connect(address2).allowlistMint(proof, 1, {
+      value: ethers.utils.parseEther(".06"),
+    });
+    const balanceBeforeAdd2 = await ethers.provider.getBalance(
+      address2.address
+    );
+
+    await mushyContract.connect(address2).refund(address2.address, 1);
+    const balanceAfterAdd2 = await ethers.provider.getBalance(address2.address);
+    /*
+      END ALLOWLIST BLOCK
+    */
+    /*
+      ASSERTIONS BLOCK
+    */
+    // Asserts that after refund the current owner of tokens minted is returnAddress
+    expect(await mushyContract.ownerOf(0)).to.equal(
+      await mushyContract.returnAddress()
+    );
+
+    expect(await mushyContract.ownerOf(1)).to.equal(
+      await mushyContract.returnAddress()
+    );
+
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage - Public Mint Example
+    expect(
+      parseFloat(ethers.utils.formatEther(balanceAfterAdd1)) -
+        parseFloat(ethers.utils.formatEther(balanceBeforeAdd1))
+    ).to.be.greaterThan(
+      parseFloat(
+        ethers.utils.formatEther(await mushyContract.item_price_public())
+      ) *
+        // Double admin fee is to account for gas spend during txns
+        ((100 - 2 * (await mushyContract.admin_percentage())) / 100)
+    );
+
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage - Allowlist Mint Example
+    expect(
+      parseFloat(ethers.utils.formatEther(balanceAfterAdd2)) -
+        parseFloat(ethers.utils.formatEther(balanceBeforeAdd2))
+    ).to.be.greaterThan(
+      parseFloat(
+        ethers.utils.formatEther(await mushyContract.item_price_al())
+      ) *
+        // Double admin fee is to account for gas spend during txns
+        ((100 - 2 * (await mushyContract.admin_percentage())) / 100)
+    );
+  });
 });

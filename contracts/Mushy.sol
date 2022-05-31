@@ -18,7 +18,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     uint256 public pub_mint_max_per_tx = 3;
 
     // price of mints depending on state of sale
-    uint256 public item_price_al = 0.08 ether;
+    uint256 public item_price_al = 0.06 ether;
     uint256 public item_price_public = 0.08 ether;
 
     // merkle root for allowlist
@@ -52,24 +52,29 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     // Mapping of tokenId to tokenData
     mapping(uint256 => TokenData) internal _tokenData;
 
-    // Refund admin fee, a percentage, initialized at 10%, should probably not be changeable to increase trust
-    uint256 public admin_percentage = 10;
+    // Refund admin fee, an integer representing a percentage should probably not be changeable to increase trust
+    uint256 public admin_percentage;
 
     // Return address for refunded NFTs, set in the constructor to contract owner's address
     address private _return_address;
 
     // Tracks current index for use in assigning metadata in mint functions
-    uint256 internal _currIndex = 0;
+    uint256 internal _currIndex;
 
     using Strings for uint256;
 
     constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
         root = _root;
+        // Initalize refund address to contract owner
         _return_address = _msgSender();
+        // Initialize percentage to 10%
+        admin_percentage = 10;
+        // Initialize to 0
+        _currIndex = 0;
 
       // Commented below as it is resource intensive and easier to test other functionality with out it for now
 
-      // // initialize array with values 1 -> MAX_TOTAL_TOKENS
+      // // Initialize array with values 1 -> MAX_TOTAL_TOKENS
       // for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
       //     _randomNumbers.push(i);
       // }
@@ -241,19 +246,12 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
   function refund(address to, uint256 tokenId) external {
     if (!is_refund_active) revert("Refund period not active"); 
     if (to == address(0)) revert("Refund to Zero address not allowed");
-
     if (_msgSender() != ownerOf(tokenId)) revert("Refund caller not Owner");
     if (_tokenData[tokenId].refunded) revert("Token has already been refunded");
 
     uint256 refundAmount = _tokenData[tokenId].price*(100-admin_percentage)/100;
 
-    console.log("refundAmount", refundAmount);
-    
     if (refundAmount == 0) revert("Token was free mint");
-
-    unchecked {
-        _tokenData[tokenId].refunded = true; // maybe change this to run after successful transfer below
-    }
 
     safeTransferFrom(_msgSender(), _return_address, tokenId);
 
@@ -261,6 +259,10 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     if (!success) revert("Refund unsuccessful");
 
     emit Transfer(_msgSender(), _return_address, tokenId);
+
+    unchecked {
+        _tokenData[tokenId].refunded = true;
+    }
   }
 
   //  Below function exists strictly for local testing and should be removed before deploying to testnet/mainnet

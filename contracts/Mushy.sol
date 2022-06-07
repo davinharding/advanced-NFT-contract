@@ -9,6 +9,18 @@ import "hardhat/console.sol";
 
 pragma solidity ^0.8.0;
 
+// Error functions - converted form require strings to save memory
+
+error RefundPeriodNotActive();
+error RefundToZeroAddressNotAllowed();
+error RefundCalledNotOwner();
+error TokenHasAlreadyBeenRefunded();
+error TokenWasFreeMint();
+error RefundUnsuccessful();
+error ContractDoesNotAllowReceiptOfTokens();
+error AnIncorrectFunctionWasCalled();
+error AllTransfersHaveBeenDisabled();
+
 contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     // declares the maximum amount of tokens that can be minted
     uint256 public constant MAX_TOTAL_TOKENS = 5555;
@@ -32,7 +44,8 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     bool public is_allowlist_active;
     bool public is_public_mint_active;
     bool public is_revealed;
-    bool public is_refund_active;
+    bool public is_refund_active;    
+    bool public allTransfersDisabled;
 
     // reserved mints for the team
     mapping (address => uint256) reserved_mints;
@@ -181,6 +194,10 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         baseURI = _uri;
     }
 
+    // function setallTransfersDisabled(bool _allTransfersDisabled) external onlyOwner {
+    //     allTransfersDisabled = _allTransfersDisabled;
+    // }
+
     function setUnrevealedURI(string memory _uri) external onlyOwner {
         unrevealedURI = _uri;
     }
@@ -244,19 +261,19 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
   }
 
   function refund(address to, uint256 tokenId) external {
-    if (!is_refund_active) revert("Refund period not active"); 
-    if (to == address(0)) revert("Refund to Zero address not allowed");
-    if (_msgSender() != ownerOf(tokenId)) revert("Refund caller not Owner");
-    if (_tokenData[tokenId].refunded) revert("Token has already been refunded");
+    if (!is_refund_active) revert RefundPeriodNotActive();
+    if (to == address(0)) revert RefundToZeroAddressNotAllowed();
+    if (_msgSender() != ownerOf(tokenId)) revert RefundCalledNotOwner();
+    if (_tokenData[tokenId].refunded) revert TokenHasAlreadyBeenRefunded();
 
     uint256 refundAmount = _tokenData[tokenId].price*(100-admin_percentage)/100;
 
-    if (refundAmount == 0) revert("Token was free mint");
+    if (refundAmount == 0) revert TokenWasFreeMint();
 
     safeTransferFrom(_msgSender(), _return_address, tokenId);
 
     (bool success, ) = to.call{value: refundAmount}("");
-    if (!success) revert("Refund unsuccessful");
+    if (!success) revert RefundUnsuccessful();
 
     emit Transfer(_msgSender(), _return_address, tokenId);
 
@@ -264,6 +281,17 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         _tokenData[tokenId].refunded = true;
     }
   }
+
+  // Usage of _beforeTokenTransfers hook from ERC721A to add some require statements for transfers/mints
+
+  function _beforeTokenTransfers(
+    address,
+    address,
+    uint256,
+    uint256
+) internal view override {
+    if (allTransfersDisabled) revert AllTransfersHaveBeenDisabled();
+}
 
   //  Below function exists strictly for local testing and should be removed before deploying to testnet/mainnet
 
@@ -283,10 +311,10 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     }
 
     receive() payable external {
-        revert("Contract does not allow receipt of ETH or ERC-20 tokens");
+        revert ContractDoesNotAllowReceiptOfTokens();
     }
 
     fallback() payable external {
-        revert("An incorrect function was called");
+        revert AnIncorrectFunctionWasCalled();
     }
 }

@@ -373,4 +373,20 @@ describe("Mushy", () => {
         ((100 - 2 * (await mushyContract.admin_percentage())) / 100)
     );
   });
+
+  it("Should not allow transfers when switch is turned off", async () => {
+    mushyContract.setPublicMintActive(true);
+
+    await mushyContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await mushyContract.setAllTransfersDisabled(true);
+
+    await expect(
+      mushyContract
+        .connect(address1)
+        .transferFrom(address1.address, address2.address, 0)
+    ).to.be.revertedWith("AllTransfersHaveBeenDisabled");
+  });
 });

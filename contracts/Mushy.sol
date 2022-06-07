@@ -194,9 +194,9 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
         baseURI = _uri;
     }
 
-    // function setallTransfersDisabled(bool _allTransfersDisabled) external onlyOwner {
-    //     allTransfersDisabled = _allTransfersDisabled;
-    // }
+    function setAllTransfersDisabled(bool _allTransfersDisabled) external onlyOwner {
+        allTransfersDisabled = _allTransfersDisabled;
+    }
 
     function setUnrevealedURI(string memory _uri) external onlyOwner {
         unrevealedURI = _uri;

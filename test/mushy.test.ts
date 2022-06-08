@@ -31,7 +31,7 @@ describe("AdvancedNftContract", () => {
   });
 
   xit("Should initialize AdvancedNftContract Contract and check mint price is .08", async () => {
-    const inWei = await advancedNftContractContract.item_price_public();
+    const inWei = await advancedNftContractContract.itemPricePublic();
     expect(parseFloat(web3.utils.fromWei(inWei.toString(), "ether"))).to.equal(
       0.08
     );
@@ -289,18 +289,18 @@ describe("AdvancedNftContract", () => {
       await advancedNftContractContract.returnAddress()
     );
 
-    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage
     expect(
       parseFloat(ethers.utils.formatEther(balanceAfter)) -
         parseFloat(ethers.utils.formatEther(balanceBefore))
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.item_price_public()
+          await advancedNftContractContract.itemPricePublic()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.admin_percentage())) /
+        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
           100)
     );
   });
@@ -366,33 +366,33 @@ describe("AdvancedNftContract", () => {
       await advancedNftContractContract.returnAddress()
     );
 
-    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage - Public Mint Example
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage - Public Mint Example
     expect(
       parseFloat(ethers.utils.formatEther(balanceAfterAdd1)) -
         parseFloat(ethers.utils.formatEther(balanceBeforeAdd1))
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.item_price_public()
+          await advancedNftContractContract.itemPricePublic()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.admin_percentage())) /
+        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
           100)
     );
 
-    // Asserts that balanceBefore - balanceAfter is at least price * 2*admin_percentage - Allowlist Mint Example
+    // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage - Allowlist Mint Example
     expect(
       parseFloat(ethers.utils.formatEther(balanceAfterAdd2)) -
         parseFloat(ethers.utils.formatEther(balanceBeforeAdd2))
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.item_price_al()
+          await advancedNftContractContract.itemPriceAl()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.admin_percentage())) /
+        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
           100)
     );
   });

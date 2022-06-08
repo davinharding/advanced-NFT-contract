@@ -13,15 +13,17 @@ pragma solidity ^0.8.0;
 
 error RefundPeriodNotActive();
 error RefundToZeroAddressNotAllowed();
-error RefundCalledNotOwner();
+error RefundCallerNotOwner();
 error TokenHasAlreadyBeenRefunded();
 error TokenWasFreeMint();
 error RefundUnsuccessful();
 error ContractDoesNotAllowReceiptOfTokens();
 error AnIncorrectFunctionWasCalled();
 error AllTransfersHaveBeenDisabled();
+error OnlyOneTokenCanMoveAtOnce();
+error OnlyOneTokenPerAddress();
 
-contract Mushy is ERC721A, Ownable, ReentrancyGuard {
+contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     // declares the maximum amount of tokens that can be minted
     uint256 public constant MAX_TOTAL_TOKENS = 5555;
 
@@ -45,7 +47,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     bool public is_public_mint_active;
     bool public is_revealed;
     bool public is_refund_active;    
-    bool public allTransfersDisabled;
+    bool public allTransfersDisabled = true;
 
     // reserved mints for the team
     mapping (address => uint256) reserved_mints;
@@ -76,7 +78,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
 
     using Strings for uint256;
 
-    constructor (bytes32 _root) ERC721A("Mushy NFT", "Mushy") {
+    constructor (bytes32 _root) ERC721A("Advanced NFT", "ANFT") {
         root = _root;
         // Initalize refund address to contract owner
         _return_address = _msgSender();
@@ -263,7 +265,7 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
   function refund(address to, uint256 tokenId) external {
     if (!is_refund_active) revert RefundPeriodNotActive();
     if (to == address(0)) revert RefundToZeroAddressNotAllowed();
-    if (_msgSender() != ownerOf(tokenId)) revert RefundCalledNotOwner();
+    if (_msgSender() != ownerOf(tokenId)) revert RefundCallerNotOwner();
     if (_tokenData[tokenId].refunded) revert TokenHasAlreadyBeenRefunded();
 
     uint256 refundAmount = _tokenData[tokenId].price*(100-admin_percentage)/100;
@@ -282,15 +284,26 @@ contract Mushy is ERC721A, Ownable, ReentrancyGuard {
     }
   }
 
-  // Usage of _beforeTokenTransfers hook from ERC721A to add some require statements for transfers/mints
+  /*
+    Usage of _beforeTokenTransfers hook from ERC721A to add some require statements for transfers/mints that accomplishes:
+
+    1) Only allowing 1 token per wallet
+    2) Disallowing transfers of tokens when allTransfersDisabled flag is set to true
+    3) Exceptions to #2 is minting and refunds
+  */
 
   function _beforeTokenTransfers(
-    address,
-    address,
+    address from,
+    address to,
     uint256,
-    uint256
+    uint256 quantity
 ) internal view override {
-    if (allTransfersDisabled) revert AllTransfersHaveBeenDisabled();
+    // respect allTransfersDisable flag unless returning to DAO or minting
+    if (allTransfersDisabled && to != _return_address && from != address(0)) revert AllTransfersHaveBeenDisabled();
+    // prevents more than one tokem moving at once to ensure 1 token per wallet
+    if (quantity > 1) revert OnlyOneTokenCanMoveAtOnce();
+    // Only allow one token per address unless _return_address
+    if (balanceOf(to) >= 1 && to != _return_address) revert OnlyOneTokenPerAddress();
 }
 
   //  Below function exists strictly for local testing and should be removed before deploying to testnet/mainnet

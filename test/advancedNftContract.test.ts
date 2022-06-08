@@ -7,7 +7,7 @@ import keccak256 from "keccak256";
 const { web3 } = require("@openzeppelin/test-helpers/src/setup");
 
 describe("AdvancedNftContract", () => {
-  let advancedNftContractContract: Contract;
+  let advancedNftContract: Contract;
   let owner: SignerWithAddress;
   let address1: SignerWithAddress;
   let address2: SignerWithAddress;
@@ -27,18 +27,18 @@ describe("AdvancedNftContract", () => {
     tree = new MerkleTree(leaves, keccak256, { sort: true });
     root = tree.getHexRoot();
 
-    advancedNftContractContract = await AdvancedNftContractFactory.deploy(root);
+    advancedNftContract = await AdvancedNftContractFactory.deploy(root);
   });
 
   xit("Should initialize AdvancedNftContract Contract and check mint price is .08", async () => {
-    const inWei = await advancedNftContractContract.itemPricePublic();
+    const inWei = await advancedNftContract.itemPricePublic();
     expect(parseFloat(web3.utils.fromWei(inWei.toString(), "ether"))).to.equal(
       0.08
     );
   });
 
   xit("Should set the right owner", async () => {
-    expect(await advancedNftContractContract.owner()).to.equal(
+    expect(await advancedNftContract.owner()).to.equal(
       await owner.address
     );
   });
@@ -47,13 +47,13 @@ describe("AdvancedNftContract", () => {
     const leaf = keccak256(address1.address);
     const proof = tree.getHexProof(leaf);
 
-    advancedNftContractContract.setAllowlistMintActive(true);
+    advancedNftContract.setAllowlistMintActive(true);
 
-    advancedNftContractContract.connect(address1).allowlistMint(proof, 1, {
+    advancedNftContract.connect(address1).allowlistMint(proof, 1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    const balance = await advancedNftContractContract.balanceOf(
+    const balance = await advancedNftContract.balanceOf(
       address1.address
     );
     expect(balance.toNumber()).to.equal(1);
@@ -63,10 +63,10 @@ describe("AdvancedNftContract", () => {
     const leaf = keccak256(owner.address);
     const proof = tree.getHexProof(leaf);
 
-    advancedNftContractContract.setAllowlistMintActive(true);
+    advancedNftContract.setAllowlistMintActive(true);
 
     await expect(
-      advancedNftContractContract.allowlistMint(proof, 4, {
+      advancedNftContract.allowlistMint(proof, 4, {
         value: ethers.utils.parseEther(".32"),
       })
     ).to.be.revertedWith("Requested mint amount invalid");
@@ -76,10 +76,10 @@ describe("AdvancedNftContract", () => {
     const leaf = keccak256(owner.address);
     const proof = tree.getHexProof(leaf);
 
-    advancedNftContractContract.setAllowlistMintActive(true);
+    advancedNftContract.setAllowlistMintActive(true);
 
     await expect(
-      advancedNftContractContract.allowlistMint(proof, 1, {
+      advancedNftContract.allowlistMint(proof, 1, {
         value: ethers.utils.parseEther(".1"),
       })
     ).to.be.revertedWith("Not sufficient ETH to mint this number of NFTs");
@@ -89,10 +89,10 @@ describe("AdvancedNftContract", () => {
     const leaf = keccak256(address3.address); // address3 is not in the merkle tree
     const proof = tree.getHexProof(leaf);
 
-    advancedNftContractContract.setAllowlistMintActive(true);
+    advancedNftContract.setAllowlistMintActive(true);
 
     await expect(
-      advancedNftContractContract.allowlistMint(proof, 1, {
+      advancedNftContract.allowlistMint(proof, 1, {
         value: ethers.utils.parseEther(".08"),
       })
     ).to.be.revertedWith("Invalid proof");
@@ -103,7 +103,7 @@ describe("AdvancedNftContract", () => {
     const proof = tree.getHexProof(leaf);
 
     await expect(
-      advancedNftContractContract.allowlistMint(proof, 2, {
+      advancedNftContract.allowlistMint(proof, 2, {
         value: ethers.utils.parseEther(".16"),
       })
     ).to.be.revertedWith("Allowlist mint not active");
@@ -114,54 +114,54 @@ describe("AdvancedNftContract", () => {
     const proof = tree.getHexProof(leaf);
 
     await expect(
-      advancedNftContractContract.allowlistMint(proof, 3, {
+      advancedNftContract.allowlistMint(proof, 3, {
         value: ethers.utils.parseEther(".24"),
       })
     ).to.be.revertedWith("Mint Amount Exceeds Total Allowed Mints");
   });
 
   xit("Should allow public mint from any address, mint address balance should match # of mints executed, max public mint per tx should not be exceeded", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
     await expect(
-      advancedNftContractContract.publicMint(1, {
+      advancedNftContract.publicMint(1, {
         value: ethers.utils.parseEther(".08"),
       })
     );
 
-    const balance = await advancedNftContractContract.balanceOf(owner.address);
+    const balance = await advancedNftContract.balanceOf(owner.address);
     expect(balance.toNumber()).to.equal(1);
 
     await expect(
-      advancedNftContractContract.publicMint(5, {
+      advancedNftContract.publicMint(5, {
         value: ethers.utils.parseEther(".40"),
       })
     ).to.be.reverted;
   });
 
   xit("Should not exceed max public mint per tx #", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
     await expect(
-      advancedNftContractContract.publicMint(2, {
+      advancedNftContract.publicMint(2, {
         value: ethers.utils.parseEther(".14"),
       })
     ).to.be.revertedWith("Requested Mint Amount Exceeds Limit Per Tx");
   });
 
   xit("Should not allow max supply to be exceeded during public mint", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
-    advancedNftContractContract.publicMint(1, {
+    advancedNftContract.publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    advancedNftContractContract.connect(address1).publicMint(1, {
+    advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
     await expect(
-      advancedNftContractContract.connect(address2).publicMint(1, {
+      advancedNftContract.connect(address2).publicMint(1, {
         value: ethers.utils.parseEther(".08"),
       })
     ).to.be.revertedWith("Mint Amount Exceeds Total Allowed Mints");
@@ -169,58 +169,58 @@ describe("AdvancedNftContract", () => {
 
   xit("Should not be allowed to public mint if it is not active", async () => {
     await expect(
-      advancedNftContractContract.publicMint(1, {
+      advancedNftContract.publicMint(1, {
         value: ethers.utils.parseEther(".07"),
       })
     ).to.be.revertedWith("advancedNftContract Public Mint Not Active");
   });
 
   xit("Should not be allowed to public mint with incorrect payment value", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
     await expect(
-      advancedNftContractContract.publicMint(1, {
+      advancedNftContract.publicMint(1, {
         value: ethers.utils.parseEther(".08"),
       })
     ).to.be.revertedWith("Incorrect Payment");
   });
 
   xit("Should allow reservation mint from any address inside reservations mapping, mint address balance should match # of mints executed", async () => {
-    await expect(advancedNftContractContract.reservationMint(1));
+    await expect(advancedNftContract.reservationMint(1));
 
-    const balance = await advancedNftContractContract.balanceOf(owner.address);
+    const balance = await advancedNftContract.balanceOf(owner.address);
 
     expect(balance.toNumber()).to.equal(1);
   });
 
   xit("Should not exceed allowance # of reservation mints", async () => {
     await expect(
-      advancedNftContractContract.reservationMint(2)
+      advancedNftContract.reservationMint(2)
     ).to.be.revertedWith("No Reservation for requested amount");
   });
 
   xit("Should not exceed total reserved # of reservation mints ", async () => {
-    advancedNftContractContract.reservationMint(1);
+    advancedNftContract.reservationMint(1);
 
     await expect(
-      advancedNftContractContract.connect(address1).reservationMint(1)
+      advancedNftContract.connect(address1).reservationMint(1)
     ).to.be.revertedWith("Amount Exceeds Total Reserved");
   });
 
   xit("Should return unrevealerdURI if is_revealed === false", async () => {
-    advancedNftContractContract.reservationMint(1);
+    advancedNftContract.reservationMint(1);
 
-    const testURI = await advancedNftContractContract.tokenURI(0);
+    const testURI = await advancedNftContract.tokenURI(0);
 
     expect(testURI).to.equal("unrevealedURI.ipfs/");
   });
 
   xit("Should return revealerdURI + tokenID + .json if is_revealed === true", async () => {
-    advancedNftContractContract.reservationMint(1);
+    advancedNftContract.reservationMint(1);
 
-    advancedNftContractContract.setIsRevealed(true);
+    advancedNftContract.setIsRevealed(true);
 
-    const testURI = await advancedNftContractContract.tokenURI(0);
+    const testURI = await advancedNftContract.tokenURI(0);
 
     expect(testURI).to.equal("revealedURI.ipfs/0.json");
   });
@@ -228,7 +228,7 @@ describe("AdvancedNftContract", () => {
   xit("Any ETH or ERC20 txns should be reverted", async () => {
     await expect(
       address1.sendTransaction({
-        to: advancedNftContractContract.address,
+        to: advancedNftContract.address,
         value: ethers.utils.parseEther("1"),
       })
     ).to.be.revertedWith(
@@ -239,25 +239,25 @@ describe("AdvancedNftContract", () => {
   xit("Should should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
     const randomSeed = ethers.BigNumber.from("7854166079704491"); // this can be supplied off chain or via chainliink vrf
 
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
     await expect(
-      advancedNftContractContract.publicMint(1, {
+      advancedNftContract.publicMint(1, {
         value: ethers.utils.parseEther(".08"),
       })
     );
 
-    await advancedNftContractContract.setIsRevealed(true);
+    await advancedNftContract.setIsRevealed(true);
 
-    const tokenURI = await advancedNftContractContract.tokenURI(0);
+    const tokenURI = await advancedNftContract.tokenURI(0);
 
-    const oldArray = await advancedNftContractContract.getRandomNumbersArray();
+    const oldArray = await advancedNftContract.getRandomNumbersArray();
 
-    await advancedNftContractContract.shuffler(randomSeed);
+    await advancedNftContract.shuffler(randomSeed);
 
-    const newTokenURI = await advancedNftContractContract.tokenURI(0);
+    const newTokenURI = await advancedNftContract.tokenURI(0);
 
-    const newArray = await advancedNftContractContract.getRandomNumbersArray();
+    const newArray = await advancedNftContract.getRandomNumbersArray();
 
     oldArray.forEach((e: number) => {
       // console.log(e, newArray[e - 1]);
@@ -268,25 +268,25 @@ describe("AdvancedNftContract", () => {
   });
 
   it("Should refund such that owner receives eth and no longer owns token, refund_address now has token", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
-    await advancedNftContractContract.connect(address1).publicMint(1, {
+    await advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
     const balanceBefore = await ethers.provider.getBalance(address1.address);
 
-    await advancedNftContractContract.setRefundActive(true);
+    await advancedNftContract.setRefundActive(true);
 
-    await advancedNftContractContract
+    await advancedNftContract
       .connect(address1)
       .refund(address1.address, 0);
 
     const balanceAfter = await ethers.provider.getBalance(address1.address);
 
     // Asserts that after refund the current owner of token minted by address1 is daoAddress
-    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      await advancedNftContractContract.daoAddress()
+    expect(await advancedNftContract.ownerOf(0)).to.equal(
+      await advancedNftContract.daoAddress()
     );
 
     // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage
@@ -296,11 +296,11 @@ describe("AdvancedNftContract", () => {
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.itemPricePublic()
+          await advancedNftContract.itemPricePublic()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
+        ((100 - 2 * (await advancedNftContract.adminPercentage())) /
           100)
     );
   });
@@ -317,15 +317,15 @@ describe("AdvancedNftContract", () => {
     /*     
       PUBLIC MINT/REFUND BLOCK
     */
-    advancedNftContractContract.setPublicMintActive(true);
-    await advancedNftContractContract.connect(address1).publicMint(1, {
+    advancedNftContract.setPublicMintActive(true);
+    await advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
     const balanceBeforeAdd1 = await ethers.provider.getBalance(
       address1.address
     );
-    await advancedNftContractContract.setRefundActive(true);
-    await advancedNftContractContract
+    await advancedNftContract.setRefundActive(true);
+    await advancedNftContract
       .connect(address1)
       .refund(address1.address, 0);
     const balanceAfterAdd1 = await ethers.provider.getBalance(address1.address);
@@ -335,10 +335,10 @@ describe("AdvancedNftContract", () => {
     /*
       ALLOWLIST MINT/REFUND BLOCK
     */
-    advancedNftContractContract.setAllowlistMintActive(true);
+    advancedNftContract.setAllowlistMintActive(true);
     const leaf = keccak256(address2.address);
     const proof = tree.getHexProof(leaf);
-    await advancedNftContractContract
+    await advancedNftContract
       .connect(address2)
       .allowlistMint(proof, 1, {
         value: ethers.utils.parseEther(".06"),
@@ -347,7 +347,7 @@ describe("AdvancedNftContract", () => {
       address2.address
     );
 
-    await advancedNftContractContract
+    await advancedNftContract
       .connect(address2)
       .refund(address2.address, 1);
     const balanceAfterAdd2 = await ethers.provider.getBalance(address2.address);
@@ -358,12 +358,12 @@ describe("AdvancedNftContract", () => {
       ASSERTIONS BLOCK
     */
     // Asserts that after refund the current owner of tokens minted is daoAddress
-    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      await advancedNftContractContract.daoAddress()
+    expect(await advancedNftContract.ownerOf(0)).to.equal(
+      await advancedNftContract.daoAddress()
     );
 
-    expect(await advancedNftContractContract.ownerOf(1)).to.equal(
-      await advancedNftContractContract.daoAddress()
+    expect(await advancedNftContract.ownerOf(1)).to.equal(
+      await advancedNftContract.daoAddress()
     );
 
     // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage - Public Mint Example
@@ -373,11 +373,11 @@ describe("AdvancedNftContract", () => {
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.itemPricePublic()
+          await advancedNftContract.itemPricePublic()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
+        ((100 - 2 * (await advancedNftContract.adminPercentage())) /
           100)
     );
 
@@ -388,62 +388,78 @@ describe("AdvancedNftContract", () => {
     ).to.be.greaterThan(
       parseFloat(
         ethers.utils.formatEther(
-          await advancedNftContractContract.itemPriceAl()
+          await advancedNftContract.itemPriceAl()
         )
       ) *
         // Double admin fee is to account for gas spend during txns
-        ((100 - 2 * (await advancedNftContractContract.adminPercentage())) /
+        ((100 - 2 * (await advancedNftContract.adminPercentage())) /
           100)
     );
   });
 
   it("Should not allow p2p transfers by default", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
-    await advancedNftContractContract.connect(address1).publicMint(1, {
+    await advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
     await expect(
-      advancedNftContractContract
+      advancedNftContract
         .connect(address1)
         .transferFrom(address1.address, address2.address, 0)
     ).to.be.revertedWith("AllTransfersHaveBeenDisabled");
   });
 
   it("Should allow p2p transfers when allTransfersDisabled is set to false", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
-    await advancedNftContractContract.connect(address1).publicMint(1, {
+    await advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    await advancedNftContractContract.setAllTransfersDisabled(false);
+    await advancedNftContract.setAllTransfersDisabled(false);
 
-    await advancedNftContractContract
+    await advancedNftContract
       .connect(address1)
       .transferFrom(address1.address, address2.address, 0);
 
-    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      address2.address
-    );
+    expect(await advancedNftContract.ownerOf(0)).to.equal(address2.address);
   });
 
   it("Should allow DAO to take NFT", async () => {
-    advancedNftContractContract.setPublicMintActive(true);
+    advancedNftContract.setPublicMintActive(true);
 
-    await advancedNftContractContract.connect(address1).publicMint(1, {
+    await advancedNftContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    await advancedNftContractContract.transferFrom(
+    await advancedNftContract.transferFrom(
       address1.address,
-      await advancedNftContractContract.daoAddress(),
+      await advancedNftContract.daoAddress(),
       0
     );
 
-    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      await advancedNftContractContract.daoAddress()
+    expect(await advancedNftContract.ownerOf(0)).to.equal(
+      await advancedNftContract.daoAddress()
     );
+  });
+
+  it("Should allow DAO to take NFT if DAO address is changed", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContract.setDaoAddress(address2.address);
+
+    await advancedNftContract.transferFrom(
+      address1.address,
+      await advancedNftContract.daoAddress(),
+      0
+    );
+
+    expect(await advancedNftContract.ownerOf(0)).to.equal(address2.address);
   });
 });

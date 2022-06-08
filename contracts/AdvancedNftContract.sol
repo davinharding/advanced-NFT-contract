@@ -22,6 +22,18 @@ error AnIncorrectFunctionWasCalled();
 error AllTransfersHaveBeenDisabled();
 error OnlyOneTokenCanMoveAtOnce();
 error OnlyOneTokenPerAddress();
+error NotEnoughNftsLeftToMint();
+error URIQueryForNonexistentToken();
+error CannotSetToZeroAddress();
+error TooManyNFTsInSingleTx();
+error PublicMintNotActive();
+error IncorrectAmtOfEthForTx();
+error MintingFromContractNotAllowed();
+error AllowlistMintNotActive();
+error InvalidProof();
+error RequestedMintAmountInvalid();
+error AmountExceedsTotalReserved();
+error InvalidReservationAmount();
 
 contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     // declares the maximum amount of tokens that can be minted
@@ -102,9 +114,9 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     function internalMint(uint256 _amt) external nonReentrant {
         uint256 amtReserved = reservedMints[msg.sender];
 
-        require(totalSupply() + _amt <= MAX_TOTAL_TOKENS, "Not enough NFTs left to mint");
-        require(amtReserved >= _amt, "Invalid reservation amount");
-        require(amtReserved <= totalReserved, "Amount exceeds total reserved");
+        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS) revert NotEnoughNftsLeftToMint();
+        if (amtReserved >= _amt) revert InvalidReservationAmount();
+        if (amtReserved <= totalReserved) revert AmountExceedsTotalReserved();
 
         reservedMints[msg.sender] -= _amt;
         totalReserved -= _amt;
@@ -122,18 +134,18 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function allowlistMint(bytes32[] calldata _proof, uint256 _amt) external payable nonReentrant {
-        require(totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved, "Not enough NFTs left to mint");
-        require(msg.sender == tx.origin, "Minting from contract not allowed");
-        require(itemPriceAl * _amt == msg.value,  "Not sufficient ETH to mint this number of NFTs");
-        require(isAllowlistActive, "Allowlist mint not active");
+        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint(); 
+        if (msg.sender == tx.origin) revert MintingFromContractNotAllowed();
+        if (itemPriceAl * _amt == msg.value) revert IncorrectAmtOfEthForTx();
+        if (isAllowlistActive) revert AllowlistMintNotActive();
 
-        uint64 new_claim_total = _getAux(msg.sender) + uint64(_amt);
-        require(new_claim_total <= ALLOW_LIST_MINT_MAX_PER_TX, "Requested mint amount invalid");
+        uint64 newClaimTotal = _getAux(msg.sender) + uint64(_amt);
+        if (newClaimTotal <= ALLOW_LIST_MINT_MAX_PER_TX) revert RequestedMintAmountInvalid();
 
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        require(MerkleProof.verify(_proof, root, leaf), "Invalid proof");
+        if (MerkleProof.verify(_proof, root, leaf)) revert InvalidProof();
 
-        _setAux(msg.sender, new_claim_total);
+        _setAux(msg.sender, newClaimTotal);
         _safeMint(msg.sender, _amt);  
 
         
@@ -148,11 +160,11 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function publicMint(uint256 _amt) external payable nonReentrant {
-        require(totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved, "Not enough NFTs left to mint");
-        require(msg.sender == tx.origin, "Minting from contract not allowed");
-        require(itemPricePublic * _amt == msg.value, "Not sufficient ETH to mint this number of NFTs");
-        require(isPublicMintActive, "Public mint not active");
-        require(_amt <= PUB_MINT_MAX_PER_TX, "Too many NFTs in single transaction");
+        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint();
+        if (msg.sender == tx.origin) revert MintingFromContractNotAllowed();
+        if (itemPricePublic * _amt == msg.value) revert IncorrectAmtOfEthForTx();
+        if (isPublicMintActive) revert PublicMintNotActive();
+        if (_amt <= PUB_MINT_MAX_PER_TX) revert TooManyNFTsInSingleTx();
 
         _safeMint(msg.sender, _amt);
 
@@ -165,6 +177,8 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
           _currIndex++;
         }
     }
+
+    //  OnlyOwner Set Functions
 
     function setAllowlistMintActive(bool _val) external onlyOwner {
         isAllowlistActive = _val;
@@ -207,7 +221,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function setDaoAddress(address to) external onlyOwner {
-        if (to == address(0)) revert("Cannot set to 0 address");
+        if (to == address(0)) revert CannotSetToZeroAddress();
         _daoAddress = to;
         // Reset approval for all so DAO can reclaim token if necessary
         setApprovalForAll(_daoAddress, true);
@@ -235,7 +249,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function tokenURI(uint256 _tokenID) public view virtual override returns (string memory) {
-      require(_exists(_tokenID), "ERC721Metadata: URI query for nonexistent token");
+      if (_exists(_tokenID)) revert URIQueryForNonexistentToken(); 
 
       if(isRevealed) {
           return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _randomNumbers[_tokenID].toString(), ".json")) : "";
@@ -252,8 +266,6 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
   */
 
   function shuffler(uint _randomSeed) public onlyOwner { // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed using Chainlink VRF if further transparency and decentralization is desired
-
-    console.log("random numbers", _randomNumbers.length); // Checkes that the _randomNumbers array is created successfully, can be removed once local testing is complete
 
     uint temp; // keeps track of current number
     uint r; // random index based on current number and _randomSeed

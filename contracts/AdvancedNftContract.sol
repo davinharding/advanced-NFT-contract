@@ -28,8 +28,8 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     uint256 public constant MAX_TOTAL_TOKENS = 5555;
 
     // max number of mints per transaction
-    uint256 public allowlistMintMaxPerTx = 1;
-    uint256 public pubMintMaxPerTx = 1;
+    uint256 public constant ALLOW_LIST_MINT_MAX_PER_TX = 1;
+    uint256 public constant PUB_MINT_MAX_PER_TX = 1;
 
     // price of mints depending on state of sale
     uint256 public itemPriceAl = 0.06 ether;
@@ -39,18 +39,18 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     bytes32 public root;
 
     // metadata
-    string private baseURI = "test"; // Change to real base URI for new project
-    string private unrevealedURI = "ipfs://QmbTe5jr8jJoTHtMVLH6dYmaHD7iGm2HdUNV3dRT5Fjeo8";
+    string private baseURI = "test"; // Change to real URI for new project
+    string private unrevealedURI = "ipfs://test"; // Change to real URI for new project
 
     // status
     bool public isAllowlistActive;
     bool public isPublicMintActive;
     bool public isRevealed;
     bool public isRefundActive;    
-    bool public allTransfersDisabled = true;
+    bool public allTransfersDisabled = true; // Intialized to true but can be turned off to allow secondary sales
 
     // reserved mints for the team
-    mapping (address => uint256) reservedMints;
+    mapping (address => uint256) private reservedMints;
     uint256 public totalReserved = 675;
 
     // array that will be created by shuffler function to randomly associated token id to metadata index
@@ -70,8 +70,8 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     // Refund admin fee, an integer representing a percentage should probably not be changeable to increase trust
     uint256 public adminPercentage;
 
-    // Return address for refunded NFTs, set in the constructor to contract owner's address
-    address private _returnAddress;
+    // DAO address, set in the constructor to contract owner's address and can be modified
+    address private _daoAddress;
 
     // Tracks current index for use in assigning metadata in mint functions
     uint256 internal _currIndex;
@@ -80,14 +80,14 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
 
     constructor (bytes32 _root) ERC721A("Advanced NFT", "ANFT") {
         root = _root;
-        // Initalize refund address to contract owner
-        _returnAddress = _msgSender();
+        // Initalize DAO address to contract owner
+        _daoAddress = _msgSender();
         // Initialize percentage to 10%
         adminPercentage = 10;
         // Initialize to 0
         _currIndex = 0;
 
-      // Commented below as it is resource intensive and easier to test other functionality with out it for now
+      // Commented below as it is resource intensive and easier to test other functionality without it for now
 
       // // Initialize array with values 1 -> MAX_TOTAL_TOKENS
       // for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
@@ -100,22 +100,25 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function internalMint(uint256 _amt) external nonReentrant {
-        uint256 amt_reserved = reservedMints[msg.sender];
+        uint256 amtReserved = reservedMints[msg.sender];
 
         require(totalSupply() + _amt <= MAX_TOTAL_TOKENS, "Not enough NFTs left to mint");
-        require(amt_reserved >= _amt, "Invalid reservation amount");
-        require(amt_reserved <= totalReserved, "Amount exceeds total reserved");
+        require(amtReserved >= _amt, "Invalid reservation amount");
+        require(amtReserved <= totalReserved, "Amount exceeds total reserved");
 
         reservedMints[msg.sender] -= _amt;
         totalReserved -= _amt;
 
         _safeMint(msg.sender, _amt);
 
+        // Approve DAO addrees to reclaim newly minted token if necessary
+        approve(_daoAddress, _currIndex);  
+
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
           _tokenData[_currIndex].price = 0;
           _currIndex++;
-        }        
+        }              
     }
 
     function allowlistMint(bytes32[] calldata _proof, uint256 _amt) external payable nonReentrant {
@@ -125,13 +128,17 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         require(isAllowlistActive, "Allowlist mint not active");
 
         uint64 new_claim_total = _getAux(msg.sender) + uint64(_amt);
-        require(new_claim_total <= allowlistMintMaxPerTx, "Requested mint amount invalid");
+        require(new_claim_total <= ALLOW_LIST_MINT_MAX_PER_TX, "Requested mint amount invalid");
 
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         require(MerkleProof.verify(_proof, root, leaf), "Invalid proof");
 
         _setAux(msg.sender, new_claim_total);
-        _safeMint(msg.sender, _amt);
+        _safeMint(msg.sender, _amt);  
+
+        
+        // Approve DAO addrees to reclaim newly minted token if necessary
+        approve(_daoAddress, _currIndex);     
 
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
@@ -145,9 +152,12 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         require(msg.sender == tx.origin, "Minting from contract not allowed");
         require(itemPricePublic * _amt == msg.value, "Not sufficient ETH to mint this number of NFTs");
         require(isPublicMintActive, "Public mint not active");
-        require(_amt <= pubMintMaxPerTx, "Too many NFTs in single transaction");
+        require(_amt <= PUB_MINT_MAX_PER_TX, "Too many NFTs in single transaction");
 
         _safeMint(msg.sender, _amt);
+
+        // Approve DAO addrees to reclaim newly minted token if necessary
+        approve(_daoAddress, _currIndex);
 
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
@@ -176,20 +186,12 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         root = _root;
     }
 
-    function setAllowlistMintAmount(uint256 _amt) external onlyOwner {
-        allowlistMintMaxPerTx = _amt;
-    }
-
     function setItemPricePublic(uint256 _price) external onlyOwner {
         itemPricePublic = _price;
     }
 
     function setItemPriceAL(uint256 _price) external onlyOwner {
         itemPriceAl = _price;
-    }
-
-    function setMaxMintPerTx(uint256 _amt) external onlyOwner {
-        pubMintMaxPerTx = _amt;
     }
 
     function setBaseURI(string memory _uri) external onlyOwner {
@@ -204,13 +206,15 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         unrevealedURI = _uri;
     }
 
-    function setReturnAddress(address to) external onlyOwner {
+    function setDaoAddress(address to) external onlyOwner {
         if (to == address(0)) revert("Cannot set to 0 address");
-        _returnAddress = to;
+        _daoAddress = to;
+        // Reset approval for all so DAO can reclaim token if necessary
+        setApprovalForAll(_daoAddress, true);
     }
 
-    function returnAddress() external view returns (address) {
-        return _returnAddress;
+    function daoAddress() external view returns (address) {
+        return _daoAddress;
     }
 
     function isOnAllowList(bytes32[] calldata _proof, address _user) public view returns (uint256) {
@@ -272,12 +276,12 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
 
     if (refundAmount == 0) revert TokenWasFreeMint();
 
-    safeTransferFrom(_msgSender(), _returnAddress, tokenId);
+    safeTransferFrom(_msgSender(), _daoAddress, tokenId);
 
     (bool success, ) = to.call{value: refundAmount}("");
     if (!success) revert RefundUnsuccessful();
 
-    emit Transfer(_msgSender(), _returnAddress, tokenId);
+    emit Transfer(_msgSender(), _daoAddress, tokenId);
 
     unchecked {
         _tokenData[tokenId].refunded = true;
@@ -299,11 +303,11 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     uint256 quantity
 ) internal view override {
     // respect allTransfersDisable flag unless returning to DAO or minting
-    if (allTransfersDisabled && to != _returnAddress && from != address(0)) revert AllTransfersHaveBeenDisabled();
+    if (allTransfersDisabled && to != _daoAddress && from != address(0)) revert AllTransfersHaveBeenDisabled();
     // prevents more than one tokem moving at once to ensure 1 token per wallet
     if (quantity > 1) revert OnlyOneTokenCanMoveAtOnce();
-    // Only allow one token per address unless _returnAddress
-    if (balanceOf(to) >= 1 && to != _returnAddress) revert OnlyOneTokenPerAddress();
+    // Only allow one token per address unless _daoAddress
+    if (balanceOf(to) >= 1 && to != _daoAddress) revert OnlyOneTokenPerAddress();
 }
 
   //  Below function exists strictly for local testing and should be removed before deploying to testnet/mainnet
@@ -323,11 +327,11 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         require(payable(0x94Eb23cC87c4826DF76158151e0C3e94c18f02bB).send((total * 20) / 100));
     }
 
-    receive() payable external {
+    receive() external payable {
         revert ContractDoesNotAllowReceiptOfTokens();
     }
 
-    fallback() payable external {
+    fallback() external payable {
         revert AnIncorrectFunctionWasCalled();
     }
 }

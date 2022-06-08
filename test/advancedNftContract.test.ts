@@ -284,9 +284,9 @@ describe("AdvancedNftContract", () => {
 
     const balanceAfter = await ethers.provider.getBalance(address1.address);
 
-    // Asserts that after refund the current owner of token minted by address1 is returnAddress
+    // Asserts that after refund the current owner of token minted by address1 is daoAddress
     expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      await advancedNftContractContract.returnAddress()
+      await advancedNftContractContract.daoAddress()
     );
 
     // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage
@@ -357,13 +357,13 @@ describe("AdvancedNftContract", () => {
     /*
       ASSERTIONS BLOCK
     */
-    // Asserts that after refund the current owner of tokens minted is returnAddress
+    // Asserts that after refund the current owner of tokens minted is daoAddress
     expect(await advancedNftContractContract.ownerOf(0)).to.equal(
-      await advancedNftContractContract.returnAddress()
+      await advancedNftContractContract.daoAddress()
     );
 
     expect(await advancedNftContractContract.ownerOf(1)).to.equal(
-      await advancedNftContractContract.returnAddress()
+      await advancedNftContractContract.daoAddress()
     );
 
     // Asserts that balanceBefore - balanceAfter is at least price * 2*adminPercentage - Public Mint Example
@@ -397,19 +397,53 @@ describe("AdvancedNftContract", () => {
     );
   });
 
-  it("Should not allow transfers when switch is turned off", async () => {
+  it("Should not allow p2p transfers by default", async () => {
     advancedNftContractContract.setPublicMintActive(true);
 
     await advancedNftContractContract.connect(address1).publicMint(1, {
       value: ethers.utils.parseEther(".08"),
     });
 
-    await advancedNftContractContract.setAllTransfersDisabled(true);
-
     await expect(
       advancedNftContractContract
         .connect(address1)
         .transferFrom(address1.address, address2.address, 0)
     ).to.be.revertedWith("AllTransfersHaveBeenDisabled");
+  });
+
+  it("Should allow p2p transfers when allTransfersDisabled is set to false", async () => {
+    advancedNftContractContract.setPublicMintActive(true);
+
+    await advancedNftContractContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContractContract.setAllTransfersDisabled(false);
+
+    await advancedNftContractContract
+      .connect(address1)
+      .transferFrom(address1.address, address2.address, 0);
+
+    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
+      address2.address
+    );
+  });
+
+  it("Should allow DAO to take NFT", async () => {
+    advancedNftContractContract.setPublicMintActive(true);
+
+    await advancedNftContractContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContractContract.transferFrom(
+      address1.address,
+      await advancedNftContractContract.daoAddress(),
+      0
+    );
+
+    expect(await advancedNftContractContract.ownerOf(0)).to.equal(
+      await advancedNftContractContract.daoAddress()
+    );
   });
 });

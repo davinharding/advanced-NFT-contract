@@ -33,11 +33,11 @@ error AllowlistMintNotActive();
 error InvalidProof();
 error RequestedMintAmountInvalid();
 error AmountExceedsTotalReserved();
-error InvalidReservationAmount();
+error InvalidInternalAmount();
 
 contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     // declares the maximum amount of tokens that can be minted
-    uint256 public constant MAX_TOTAL_TOKENS = 5555;
+    uint256 public constant MAX_TOTAL_TOKENS = 3;
 
     // max number of mints per transaction
     uint256 public constant ALLOW_LIST_MINT_MAX_PER_TX = 1;
@@ -51,8 +51,8 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     bytes32 public root;
 
     // metadata
-    string private baseURI = "test"; // Change to real URI for new project
-    string private unrevealedURI = "ipfs://test"; // Change to real URI for new project
+    string private baseURI = "revealedURI.ipfs"; // Change to real URI for new project
+    string private unrevealedURI = "ipfs://unrevealedURI"; // Change to real URI for new project
 
     // status
     bool public isAllowlistActive;
@@ -63,7 +63,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
 
     // reserved mints for the team
     mapping (address => uint256) private reservedMints;
-    uint256 public totalReserved = 675;
+    uint256 public totalReserved = 1;
 
     // array that will be created by shuffler function to randomly associated token id to metadata index
     uint256[] private _randomNumbers;
@@ -107,16 +107,15 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
       // }
 
         // don't forget to update totalReserved
-        reservedMints[0x4Ac2bD3b9Af192456A416de78E9E124d4FA6c399] = 120;
-        reservedMints[0x10b5B489E9b4d220Ab6e4a0E7276c54D5bf837cD] = 555;
+        reservedMints[_daoAddress] = 1;
     }
 
     function internalMint(uint256 _amt) external nonReentrant {
         uint256 amtReserved = reservedMints[msg.sender];
 
-        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS) revert NotEnoughNftsLeftToMint();
-        if (amtReserved >= _amt) revert InvalidReservationAmount();
-        if (amtReserved <= totalReserved) revert AmountExceedsTotalReserved();
+        if (totalSupply() + _amt > MAX_TOTAL_TOKENS) revert NotEnoughNftsLeftToMint();
+        if (amtReserved > totalReserved) revert AmountExceedsTotalReserved();
+        if (amtReserved < _amt) revert InvalidInternalAmount();        
 
         reservedMints[msg.sender] -= _amt;
         totalReserved -= _amt;
@@ -124,7 +123,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
         _safeMint(msg.sender, _amt);
 
         // Approve DAO addrees to reclaim newly minted token if necessary
-        approve(_daoAddress, _currIndex);  
+        if (msg.sender != _daoAddress)  approve(_daoAddress, _currIndex);  
 
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
@@ -134,23 +133,23 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function allowlistMint(bytes32[] calldata _proof, uint256 _amt) external payable nonReentrant {
-        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint(); 
-        if (msg.sender == tx.origin) revert MintingFromContractNotAllowed();
-        if (itemPriceAl * _amt == msg.value) revert IncorrectAmtOfEthForTx();
-        if (isAllowlistActive) revert AllowlistMintNotActive();
+        if (totalSupply() + _amt > MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint(); 
+        if (msg.sender != tx.origin) revert MintingFromContractNotAllowed();
+        if (itemPriceAl * _amt != msg.value) revert IncorrectAmtOfEthForTx();
+        if (!isAllowlistActive) revert AllowlistMintNotActive();
 
         uint64 newClaimTotal = _getAux(msg.sender) + uint64(_amt);
-        if (newClaimTotal <= ALLOW_LIST_MINT_MAX_PER_TX) revert RequestedMintAmountInvalid();
+        if (newClaimTotal > ALLOW_LIST_MINT_MAX_PER_TX) revert RequestedMintAmountInvalid();
 
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        if (MerkleProof.verify(_proof, root, leaf)) revert InvalidProof();
+        if (!MerkleProof.verify(_proof, root, leaf)) revert InvalidProof();
 
         _setAux(msg.sender, newClaimTotal);
         _safeMint(msg.sender, _amt);  
 
         
         // Approve DAO addrees to reclaim newly minted token if necessary
-        approve(_daoAddress, _currIndex);     
+        if (msg.sender != _daoAddress) approve(_daoAddress, _currIndex);     
 
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
@@ -160,16 +159,16 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function publicMint(uint256 _amt) external payable nonReentrant {
-        if (totalSupply() + _amt <= MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint();
-        if (msg.sender == tx.origin) revert MintingFromContractNotAllowed();
-        if (itemPricePublic * _amt == msg.value) revert IncorrectAmtOfEthForTx();
-        if (isPublicMintActive) revert PublicMintNotActive();
-        if (_amt <= PUB_MINT_MAX_PER_TX) revert TooManyNFTsInSingleTx();
+        if (totalSupply() + _amt > MAX_TOTAL_TOKENS - totalReserved) revert NotEnoughNftsLeftToMint();
+        if (msg.sender != tx.origin) revert MintingFromContractNotAllowed();
+        if (itemPricePublic * _amt != msg.value) revert IncorrectAmtOfEthForTx();
+        if (!isPublicMintActive) revert PublicMintNotActive();
+        if (_amt > PUB_MINT_MAX_PER_TX) revert TooManyNFTsInSingleTx();
 
         _safeMint(msg.sender, _amt);
 
         // Approve DAO addrees to reclaim newly minted token if necessary
-        approve(_daoAddress, _currIndex);
+        if (msg.sender != _daoAddress) approve(_daoAddress, _currIndex);
 
         // Below keeps track of _currIndex and associates price data within mapping
         for(uint i = 0; i<_amt; i++) {          
@@ -249,7 +248,8 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function tokenURI(uint256 _tokenID) public view virtual override returns (string memory) {
-      if (_exists(_tokenID)) revert URIQueryForNonexistentToken(); 
+      console.log(_exists(_tokenID));
+      if (!_exists(_tokenID)) revert URIQueryForNonexistentToken(); 
 
       if(isRevealed) {
           return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _randomNumbers[_tokenID].toString(), ".json")) : "";

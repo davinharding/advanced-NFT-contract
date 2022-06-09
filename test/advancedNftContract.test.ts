@@ -196,12 +196,6 @@ describe("AdvancedNftContract", () => {
     );
   });
 
-  xit("Should not exceed total reserved # of internal mints ", async () => {
-    await expect(advancedNftContract.internalMint(2)).to.be.revertedWith(
-      "AmountExceedsTotalReserved"
-    );
-  });
-
   it("Should return unrevealerdURI if is_revealed === false", async () => {
     advancedNftContract.internalMint(1);
 
@@ -210,8 +204,20 @@ describe("AdvancedNftContract", () => {
     expect(testURI).to.equal("ipfs://unrevealedURI");
   });
 
+  it("Should not allow tokenURI query for token that has not been minted or does not exist", async () => {
+    advancedNftContract.internalMint(1);
+
+    await expect(advancedNftContract.tokenURI(1)).to.be.revertedWith(
+      "URIQueryForNonexistentToken"
+    );
+
+    await expect(advancedNftContract.tokenURI(10000)).to.be.revertedWith(
+      "URIQueryForNonexistentToken"
+    );
+  });
+
   // this test requires _randomNumbers array to be initialized
-  xit("Should return revealedURI + tokenID + .json if is_revealed === true", async () => {
+  it("Should return revealedURI + tokenID + .json if is_revealed === true", async () => {
     advancedNftContract.internalMint(1);
 
     advancedNftContract.setIsRevealed(true);
@@ -221,18 +227,16 @@ describe("AdvancedNftContract", () => {
     expect(testURI).to.equal("revealedURI.ipfs/0.json");
   });
 
-  xit("Any ETH or ERC20 txns should be reverted", async () => {
+  it("Any ETH or ERC20 txns should be reverted", async () => {
     await expect(
       address1.sendTransaction({
         to: advancedNftContract.address,
         value: ethers.utils.parseEther("1"),
       })
-    ).to.be.revertedWith(
-      "Contract does not allow receipt of ETH or ERC-20 tokens"
-    );
+    ).to.be.revertedWith("ContractDoesNotAllowReceiptOfTokens");
   });
 
-  xit("Should should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
+  it("Should shuffle _randomNumbers array such that tokenURI function returns a different URI after shuffler is run", async () => {
     const randomSeed = ethers.BigNumber.from("7854166079704491"); // this can be supplied off chain or via chainliink vrf
 
     advancedNftContract.setPublicMintActive(true);
@@ -256,7 +260,6 @@ describe("AdvancedNftContract", () => {
     const newArray = await advancedNftContract.getRandomNumbersArray();
 
     oldArray.forEach((e: number) => {
-      // console.log(e, newArray[e - 1]);
       expect(e).to.not.equal(newArray[e - 1]);
     });
 
@@ -294,6 +297,60 @@ describe("AdvancedNftContract", () => {
         // Double admin fee is to account for gas spend during txns
         ((100 - 2 * (await advancedNftContract.adminPercentage())) / 100)
     );
+  });
+
+  it("Should not allow refund when refund period is not active", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await expect(
+      advancedNftContract.connect(address1).refund(address1.address, 0)
+    ).to.be.revertedWith("RefundPeriodNotActive");
+  });
+
+  it("Should not allow refund to be called by address that does not own token", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContract.setRefundActive(true);
+
+    await expect(
+      advancedNftContract.connect(address2).refund(address1.address, 0)
+    ).to.be.revertedWith("RefundCallerNotOwner");
+  });
+
+  it("Should not allow refund to be called on token that has already been refunded", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContract.setRefundActive(true);
+
+    await advancedNftContract.connect(address1).refund(address1.address, 0);
+
+    await expect(
+      advancedNftContract.refund(owner.address, 0)
+    ).to.be.revertedWith("TokenHasAlreadyBeenRefunded");
+  });
+
+  it("Should not allow refund for free/internal/reserved mints", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.internalMint(1);
+
+    await advancedNftContract.setRefundActive(true);
+
+    await expect(
+      advancedNftContract.refund(owner.address, 0)
+    ).to.be.revertedWith("TokenWasFreeMin");
   });
 
   /*
@@ -461,5 +518,35 @@ describe("AdvancedNftContract", () => {
     );
 
     expect(await advancedNftContract.ownerOf(0)).to.equal(address2.address);
+  });
+
+  it("Should not allow more than 1 NFT per mint", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await expect(
+      advancedNftContract.publicMint(2, {
+        value: ethers.utils.parseEther(".16"),
+      })
+    ).to.be.revertedWith("TooManyNFTsInSingleTx");
+  });
+
+  it("Should not allow any address to have more than one NFT at a time even when transfers are on", async () => {
+    advancedNftContract.setPublicMintActive(true);
+
+    await advancedNftContract.connect(address1).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContract.connect(address2).publicMint(1, {
+      value: ethers.utils.parseEther(".08"),
+    });
+
+    await advancedNftContract.setAllTransfersDisabled(false);
+
+    await expect(
+      advancedNftContract
+        .connect(address1)
+        .transferFrom(address1.address, address2.address, 0)
+    ).to.be.revertedWith("OnlyOneTokenPerAddress");
   });
 });

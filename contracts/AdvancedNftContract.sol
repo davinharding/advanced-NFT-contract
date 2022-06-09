@@ -32,7 +32,7 @@ error MintingFromContractNotAllowed();
 error AllowlistMintNotActive();
 error InvalidProof();
 error RequestedMintAmountInvalid();
-error AmountExceedsTotalReserved();
+error IndAmountReservedExceedsTotalReserved();
 error InvalidInternalAmount();
 
 contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
@@ -51,7 +51,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
   bytes32 public root;
 
   // metadata
-  string private baseURI = "revealedURI.ipfs"; // Change to real URI for new project
+  string private baseURI = "revealedURI.ipfs/"; // Needs trailing `/`, change to real URI for new project
   string private unrevealedURI = "ipfs://unrevealedURI"; // Change to real URI for new project
 
   // status
@@ -101,12 +101,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
 
     // Commented below as it is resource intensive and easier to test other functionality without it for now
 
-    // // Initialize array with values 1 -> MAX_TOTAL_TOKENS
-    // for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
-    //   _randomNumbers.push(i);
-    // }
-
-    // don't forget to update totalReserved
+    // Update with actual reserve addresses, don't forget to update totalReserved
     reservedMints[_daoAddress] = 1;
   }
 
@@ -114,7 +109,7 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     uint256 amtReserved = reservedMints[msg.sender];
 
     if (totalSupply() + _amt > MAX_TOTAL_TOKENS) revert NotEnoughNftsLeftToMint();
-    if (amtReserved > totalReserved) revert AmountExceedsTotalReserved();
+    if (amtReserved > totalReserved) revert IndAmountReservedExceedsTotalReserved();
     if (amtReserved < _amt) revert InvalidInternalAmount();        
 
     reservedMints[msg.sender] -= _amt;
@@ -248,13 +243,17 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
   }
 
   function tokenURI(uint256 _tokenID) public view virtual override returns (string memory) {
-    console.log(_exists(_tokenID));
     if (!_exists(_tokenID)) revert URIQueryForNonexistentToken(); 
 
-    if(isRevealed) {
+    if(isRevealed && _randomNumbers.length == 0) {
+      // if revealed and shuffler has not been run yet
+      return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenID.toString(), ".json")) : "";
+    }else if (isRevealed && _randomNumbers.length > 0) {
+      // if revealed and shuffler has been run
       return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _randomNumbers[_tokenID].toString(), ".json")) : "";
     }
     else {
+      // if not revealed
       return unrevealedURI;
     }
   }
@@ -266,6 +265,11 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
   */
 
   function shuffler(uint _randomSeed) public onlyOwner { // _randomSeed is currently being supplied off chain however there is an ability to introduce a provably random seed using Chainlink VRF if further transparency and decentralization is desired
+
+    // Initialize array with values 1 -> MAX_TOTAL_TOKENS
+    for(uint i = 1; i <= MAX_TOTAL_TOKENS; i++) {
+      _randomNumbers.push(i);
+    }
 
     uint temp; // keeps track of current number
     uint r; // random index based on current number and _randomSeed

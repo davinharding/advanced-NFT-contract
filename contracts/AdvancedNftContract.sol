@@ -99,8 +99,6 @@ contract AdvancedNftContract is ERC721A, Ownable, ReentrancyGuard {
     // Initialize to 0
     _currIndex = 0;
 
-    // Commented below as it is resource intensive and easier to test other functionality without it for now
-
     // Update with actual reserve addresses, don't forget to update totalReserved
     reservedMints[_daoAddress] = 1;
   }

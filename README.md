@@ -5,7 +5,7 @@ This project is an extension of the ERC721A standard NFT contract to be used for
 # Features
 
 - Internal (free) Mint with reservation system
-- Allowlistmint w support for different price and tracking via Merkle Tree for memory optimization
+- Allowlist mint w support for different price and tracking via Merkle Tree for memory optimization
 - Public mint
 - Metadata shuffle mechanism using Fisher-Yates algorithm to randomize mint at owner's discretion
 - Several DAO controls
